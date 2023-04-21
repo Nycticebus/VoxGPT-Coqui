@@ -5,19 +5,20 @@ from fastapi.responses import FileResponse
 import openai
 import shutil
 import uuid
-from gtts import gTTS
 import ffmpeg
 import base64
 from fastapi.staticfiles import StaticFiles
 import os
-from pydub import AudioSegment
+from TTS.api import TTS
 
+# Set up app before running
 AI_COMPLETION_MODEL = os.getenv("AI_COMPLETION_MODEL", "gpt-3.5-turbo")
 LANGUAGE = os.getenv("LANGUAGE", "en")
-AUDIO_SPEED = os.getenv("AUDIO_SPEED", None)
+
+# Launch app
 app = FastAPI()
 
-
+# Request creator
 @app.post("/inference")
 async def infer(audio: UploadFile, background_tasks: BackgroundTasks,
                 conversation: str = Header(default=None)) -> FileResponse:
@@ -36,21 +37,9 @@ async def infer(audio: UploadFile, background_tasks: BackgroundTasks,
                         headers={"text": construct_response_header(user_prompt, ai_response)})
 
 
-@app.post("/test")
-async def test(audio: UploadFile):
-    print("received request")
-
-    initial_filepath = f"/tmp/{uuid.uuid4()}{audio.filename}"
-
-    with open(initial_filepath, "wb+") as file_object:
-        shutil.copyfileobj(audio.file, file_object)
-
-    print("done")
-
-
 app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
 
-
+# Transcribe Audio input recording
 async def transcribe(audio):
     start_time = time.time()
     initial_filepath = f"/tmp/{uuid.uuid4()}{audio.filename}"
@@ -82,7 +71,7 @@ async def transcribe(audio):
 
     return transcription
 
-
+# Send message to ChatGPT 
 async def get_completion(user_prompt, conversation_thus_far):
     start_time = time.time()
     messages = [
@@ -111,39 +100,24 @@ def get_additional_initial_messages():
         case _:
             return []
 
-
-def to_audio(text):
+# Convert ChatGPT's response to an Audio File with Coqui TTS
+def to_audio(textInput):
     start_time = time.time()
-
-    tts = gTTS(text, lang=LANGUAGE)
+    # Init TTS with the target model name
+    tts = TTS(model_name="tts_models/en/vctk/vits", progress_bar=True, gpu=True)
+    # set filepath
     filepath = f"/tmp/{uuid.uuid4()}.mp3"
-    tts.save(filepath)
-
-    speed_adjusted_filepath = adjust_audio_speed(filepath)
-
+    # Run TTS
+    tts.tts_to_file(text=textInput, speaker=tts.speakers[3], file_path=filepath)
+    
     print('TTS time:', time.time() - start_time, 'seconds')
-    return speed_adjusted_filepath
+    return filepath
 
-
-def adjust_audio_speed(audio_filepath):
-    if AUDIO_SPEED is None:
-        return audio_filepath
-
-    audio = AudioSegment.from_mp3(audio_filepath)
-    faster_audio = audio.speedup(playback_speed=float(AUDIO_SPEED))
-
-    speed_adjusted_filepath = f"/tmp/{uuid.uuid4()}.mp3"
-    faster_audio.export(speed_adjusted_filepath, format="mp3")
-
-    delete_file(audio_filepath)
-
-    return speed_adjusted_filepath
-
-
+# Clean Up
 def delete_file(filepath: str):
     os.remove(filepath)
 
-
+# Make Response parsable upon receipt from ChatGPT
 def construct_response_header(user_prompt, ai_response):
     return base64.b64encode(
         json.dumps(
