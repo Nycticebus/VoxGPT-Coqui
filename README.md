@@ -2,7 +2,7 @@
 
 This is a web app that gives ChatGPT a realistic voice interface. 
 
-Here's a video with no editing: 
+Here's a video with no editing: [Video Coming Soon!]
 
 OpenAI Whisper is used for speech-to-text, OpenAI `gpt-3.5-turbo`/`gpt-4` for completion, and Coqui TTS for voice synthesis. 
 
