@@ -3,8 +3,6 @@ FROM tiangolo/uvicorn-gunicorn-fastapi:python3.10-slim
 WORKDIR /
 
 ENV MAX_WORKERS=5
-ENV AUDIO_SPEED=1
-ENV OPENAI_API_KEY="[redacted]"
 
 COPY ./requirements.txt /app/requirements.txt
 
